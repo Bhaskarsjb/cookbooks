@@ -1,0 +1,93 @@
+#
+# Cookbook:: postgresql_chef_test
+# Recipe:: default
+#
+# Copyright:: 2018, The Authors, All Rights Reserved.
+
+# Initialize the Parameters
+ENV['PostgreVersion'] = '10.1'
+ENV['binarypath'] = '/var/lib/postgresql/bin'
+ENV['DataFolder'] = '/var/lib/postgresql/data'
+ENV['logfilepath'] = '/var/lib/postgresql/log'
+ENV['InstallFolder'] = '/root/postgresql'
+ENV['port'] = '5432'
+
+#Initialize the Installation log file location
+
+#execute 'LOGFILE=/root/PostgreSQL-$PostgreVersion-Installlogfile.out'
+
+#Create software Directory
+
+%w[ /root/postgresql ].each do |path|
+  directory path do
+    owner "root"
+    group "root"
+    mode  "0777"
+   end
+end
+
+#Create Data directory folder
+
+%w[/var/lib/postgresql /var/lib/postgresql/data /var/lib/postgresql/data/10.1  ].each do |path|
+  directory path do
+    owner "root"
+    group "root"
+    mode  "0777"
+   end
+end
+
+#Create executable binary Directory
+
+%w[ /var/lib/postgresql/bin /var/lib/postgresql/bin/10.1 ].each do |path|
+  directory path do
+    owner "root"
+    group "root"
+    mode  "0777"
+   end
+end
+
+#Create Server Logouput filename 
+
+directory '/var/lib/postgresql/log' do
+    owner "root"
+    group "root"
+    mode  "0777"
+end
+
+#Installing wget package
+
+package 'wget' do 
+  action :install
+end
+
+#Download Postgresql tar binaries
+
+tar_extract 'https://ftp.postgresql.org/pub/source/v10.1/postgresql-10.1.tar.gz' do
+  target_dir '/root/postgresql'
+  creates '/root/postgresql/lib_chef'
+end
+
+#Installing Readline package
+
+zypper_package 'readline-devel' do
+  action :install
+  options '--name'
+end
+
+#Installing zlib package
+
+zypper_package 'zlib-devel.x86_64' do
+  action :install
+  options '--name'
+end
+
+#Installing Readline gcc Packages
+
+zypper_package 'gcc' do
+  action :install
+  options '--name'
+end
+
+#PostGreInstallation
+
+

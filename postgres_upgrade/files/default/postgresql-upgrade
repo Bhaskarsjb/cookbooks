@@ -1,0 +1,464 @@
+#!/bin/sh
+#SCRIPT SHOULD BE RUN AS ROOT USER.
+
+#trap "set +x; sleep 1; set -x" DEBUG
+#postgresql-upgrade      Initialization and upgrade operations for PostgreSQL
+
+#PREVMAJORVERSION is the previous major version, e.g., 9.6, for upgrades
+#PREVMAJORVERSION=9.6
+
+
+print_status(){
+    local message="$1"
+    local status="$2"
+
+    # Get the number of columns, but subtact 8 to leave space for the status.
+    local columns=$((COLUMNS-8))
+
+    # Print left-aligned message and right-aligned status.
+    printf "%-*s [%s] \n" "$columns" "$message" "$status"
+}
+
+
+############################################
+#02/07/2018 : Script for Postgresql Version upgrade
+############################################
+
+sudo clear
+if [[ $# -lt 7 ]] ;  then
+echo "Usage: $0 #1 #2 #3 #4 #5 #6 #7          "
+echo " NewPostgreVersion	: $1           	    "
+echo " Newbinarypath	 	: $2               	"
+echo " NewDatafolder    	: $3       	        "
+echo " Newlogfilepath	 	: $4               	"
+echo " NewInstallFolder 	: $5   	            "
+echo " NewPort      	 	: $6   	            "
+
+echo "USAGE:- ./postgresql-upgrade.sh 10.2 /var/lib/postgresql/bin /var/lib/postgresql/data /var/lib/postgresql/log /root/postgresql 5433 10.1"
+exit 0
+fi
+
+#Initialize the Parameters
+NewPostgreVersion=$1
+Newbinarypath=$2
+NewDataFolder=$3
+Newlogfilepath=$4
+NewInstallFolder=$5
+Newport=$6
+PREVMAJORVERSION=$7
+
+
+#Initialize the Installation log file location
+LOGFILE=/root/PostgreSQL-$NewPostgreVersion-upgrade.log
+if [ $? != 0 ];then
+print_status "Script execution failed, please validate the logfile..."  "failed" | tee $LOGFILE
+echo ""
+exit 0
+fi
+print_status  "Install logfile path is $LOGFILE...." "OK" | tee $LOGFILE
+echo ""
+echo ""
+sleep 5s
+
+
+print_status  "PostGreSQL Version-$PostgreVersion Installation Details" "OK"  | tee -a $LOGFILE
+echo ""
+echo "########################################################"  	| tee -a $LOGFILE
+echo " NewPostgreSQL Version        :        $NewPostgreVersion " 		| tee -a $LOGFILE
+echo " NewBinary Location           :        $Newbinarypath " 			| tee -a $LOGFILE
+echo " NewData Folder               :        $NewDataFolder " 			| tee -a $LOGFILE
+echo " NewLogfilepath               :        $Newlogfilepath " 			| tee -a $LOGFILE
+echo " NewInstall Folder            :        $NewInstallFolder " 			| tee -a $LOGFILE
+echo " NewPortnumber                :        $Newport " 					| tee -a $LOGFILE
+echo " PREVMAJORVERSION			    :        $PREVMAJORVERSION"   			| tee -a $LOGFILE
+echo "########################################################" 	| tee -a $LOGFILE
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo 5s
+
+
+#Create software Directory
+echo "Creating software directory"  | tee -a $LOGFILE
+if [ ! -d "$InstallFolder/$PostgreVersion" ]  
+then
+echo "software Folder NOt found...." | tee -a $LOGFILE
+echo ""
+echo "Creating software Folder...." | tee -a $LOGFILE
+sudo mkdir -p  $NewInstallFolder/$NewPostgreVersion 
+sudo chmod -R 777 $NewInstallFolder/$NewPostgreVersion 
+if [ $? != 0 ];then
+print_status "Script execution failed, please validate the logfile....." "Failed" | tee -a $LOGFILE
+exit 1
+fi
+print_status "software Directory created successfully..."  "OK" | tee -a $LOGFILE
+fi
+echo ""
+echo ""
+echo ""
+echo ""
+#Create Data directory folder
+echo "Creating Data Directory Folder" | tee -a $LOGFILE
+if [ ! -d "$NewDataFolder/$NewPostgreVersion" ]
+then
+echo "Data folder not found...." | tee -a $LOGFILE
+echo ""
+sudo mkdir -p  $NewDataFolder/$NewPostgreVersion/ 
+sudo chmod -R 755 $NewDataFolder/$NewPostgreVersion/ 
+if [ $? != 0 ];then
+print_status "Script execution failed, please validate the logfile..."  "Failed"| tee -a $LOGFILE
+exit 1
+echo ""
+fi
+print_status "Data Directory created successfully..." "OK"| tee -a $LOGFILE
+fi
+sleep 1s
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+
+#Create executable binary Directory
+echo "Validating executable binary directory" | tee -a $LOGFILE
+if [ ! -d "$Newbinarypath/$NewPostgreVersion" ]  
+then
+echo "Installation Folder Not found...." | tee -a $LOGFILE
+echo ""
+echo "Creating executable binary Folder...." | tee -a $LOGFILE
+sudo mkdir -p  $Newbinarypath/$NewPostgreVersion 
+sudo chmod -R 755 $Newbinarypath/$NewPostgreVersion
+if [ $? != 0 ];then
+print_status "Script execution failed, please validate the logfile..." "Failed" | tee -a $LOGFILE
+exit 1
+fi
+print_status "Executable binary Directory created successfully..." "OK" | tee -a $LOGFILE
+fi
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+
+#Create Server Logouput filename 
+echo "Creating Server logoutput filename" | tee -a $LOGFILE
+if [ ! -d "$Newlogfilepath/$NewPostgreVersion" ]  
+then
+echo "File NOt found...." | tee -a $LOGFILE
+echo ""
+echo "Creating Server logfile path...." | tee -a $LOGFILE
+sudo mkdir -p  $Newlogfilepath/$NewPostgreVersion 
+umask 077 $Newlogfilepath/$NewPostgreVersion 
+if [ $? != 0 ];then
+print_status "Script execution failed, please validate the logfile..." "Failed" | tee -a $LOGFILE
+exit 1
+fi
+print_status "Server Log output file path  created successfully..." "Ok" | tee -a $LOGFILE
+fi
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+
+print_status "Creating New Systemctl parameters..."  "OK"  | tee -a $LOGFILE 
+touch /etc/sysconfig/postgresql_New
+echo "POSTGRES_DATADIR="$NewDataFolder/$NewPostgreVersion""   | tee  /etc/sysconfig/postgresql_New  $LOGFILE 
+echo "POSTGRES_OPTIONS="\"-p $oldport"\""   | tee -a /etc/sysconfig/postgresql_New -a $LOGFILE 
+echo "POSTGRES_LOGDIR="$Newlogfilepath/$NewPostgreVersion""  | tee -a /etc/sysconfig/postgresql_New -a $LOGFILE 
+echo "POSTGRES_TIMEOUT="600""  | tee -a /etc/sysconfig/postgresql_New -a $LOGFILE 
+echo "POSTGRE_BINDIR="$Newbinarypath/$NewPostgreVersion""  | tee -a /etc/sysconfig/postgresql_New -a $LOGFILE 
+chmod -R 0644 /etc/sysconfig/postgresql_New 
+
+
+
+#Download Postgresql tar binaries
+echo "Downloading & Unpacking PostgreSQL tarball..." | tee -a $LOGFILE
+wget -P $NewInstallFolder/$NewPostgreVersion https://ftp.postgresql.org/pub/source/v$NewPostgreVersion/postgresql-$NewPostgreVersion.tar.gz 
+if [ $? != 0 ];then
+print_status "Postgresql Binary Download failed...." "Failed" | tee -a $LOGFILE
+exit 1
+else
+print_status "Postgresql Binary Download successfull..." "OK" | tee -a $LOGFILE
+fi
+echo ""
+echo ""
+echo ""
+echo ""
+echo ""
+echo "Untaring binaries" | tee -a $LOGFILE
+tar -zxf $NewInstallFolder/$NewPostgreVersion/postgresql-$NewPostgreVersion.tar.gz -C $NewInstallFolder/$NewPostgreVersion > /dev/null
+if [ $? != 0 ];then
+print_status  "Untaring binaries Failed...." "Failed"| tee -a $LOGFILE
+exit 1
+else
+print_status  "Untaring binaries successfull...." "OK" | tee -a $LOGFILE
+fi
+sleep 1s
+echo ""
+
+
+
+#PostGreInstallation
+echo ""
+echo "PostgreSQL-$NewPostgreVersion Installation Started......" | tee -a $LOGFILE
+sleep 1s
+cd $NewInstallFolder/$NewPostgreVersion/
+sudo $NewInstallFolder/$NewPostgreVersion/postgresql-$NewPostgreVersion/configure --prefix=$Newbinarypath/$NewPostgreVersion/ --bindir=$Newbinarypath/$NewPostgreVersion >/dev/null
+if [ $? != 0 ];then
+print_status  "Postgresql configuration Failed...." "Failed"| tee -a $LOGFILE
+exit 1
+else
+print_status  "Postgresql configuration successfull...." "OK" | tee -a $LOGFILE
+fi
+
+sleep 2s
+echo ""
+echo "Installer built. Installing it now...." | tee -a $LOGFILE
+sudo zypper -n install make > /dev/null
+echo "Gmake Install in progress.... " | tee -a $LOGFILE
+sudo make install > /dev/null
+#sudo zypper update > /dev/null
+sudo zypper refresh > /dev/null
+echo ""
+echo ""
+
+
+#Start the PostgreSQL services with specified data directory.
+echo "Starting PostgreSQL Database services....." | tee -a $LOGFILE
+echo ""
+echo ""
+sleep 1s
+chown -R postgres $NewDataFolder/$NewPostgreVersion/
+chown -R postgres $Newbinarypath/$NewPostgreVersion
+chown -R postgres $Newlogfilepath/$NewPostgreVersion/
+chmod -R 755 $NewDataFolder/$NewPostgreVersion/
+chmod -R 755 $Newbinarypath/$NewPostgreVersion/
+chmod -R 755 $Newlogfilepath/$NewPostgreVersion
+echo "login to Postgres.."  | tee -a $LOGFILE
+
+
+su - postgres <<eof
+$Newbinarypath/$NewPostgreVersion/initdb -D $NewDataFolder/$NewPostgreVersion/ 
+if [ $? != 0 ]
+then
+print_status "Postgres Cluster Initilaiztion  failed.. please validate the logfile..."  "Failed" | tee -a $LOGFILE
+exit 1
+else
+print_status "Postgres Cluster Initilaiztion  successfull"  "OK" | tee -a $LOGFILE
+fi
+eof
+
+
+su - postgres --command "$Newbinarypath/$NewPostgreVersion/pg_ctl -D $NewDataFolder/$NewPostgreVersion/ -o '-p $Newport' -l $Newlogfilepath/$NewPostgreVersion/postgres_serverlog.out  start" | tee -a $LOGFILE
+if [ $? != 0 ]
+then
+print_status "Postgres service restart failed.. please validate the logfile..." "Failed" | tee -a $LOGFILE
+exit 1
+else
+print_status "Postgres service started sucessfully..." "OK" | tee -a $LOGFILE
+fi
+
+
+sleep 2s
+#Verify if PostGre services is started
+cnt=`ps -ef|grep -i postgresql | grep -i $NewPostgreVersion | wc -l`
+echo "PostgreSQL process =$cnt..." | tee -a $LOGFILE
+if [[ $cnt -gt 1 ]]
+then
+print_status "PostgreSQL has started.." "OK"| tee -a $LOGFILE
+else
+print_status "PostgreSQL has not started..." "Failed"| tee -a $LOGFILE
+exit 1
+fi
+
+
+
+
+# For SELinux we need to use 'runuser' not 'su'
+if [ -x /sbin/runuser ]
+then
+    SU=runuser
+else
+    SU=su
+fi
+
+
+
+#Identify the Old Postgresql binary and Data folder path
+echo "Fetch $PREVMAJORVERSION Binary path location"  | tee -a $LOGFILE
+directory=$(ps ax -o pid,cmd | grep 'postgres *-D' | grep $PREVMAJORVERSION | awk '{ print $2 }')
+oldbindir=$(dirname $directory) 
+if [ -z "$oldbindir" ] ; then
+print_status "Failed to retreive Binary directory for Postgresql Version : $PREVMAJORVERSION..." "Failed" | tee -a $LOGFILE
+exit 1
+fi
+
+oldport=$(ps ax -o pid,cmd | grep 'postgres *-D' | grep $PREVMAJORVERSION | awk '{ print $6 }')
+print_status "Binary directory path of postgresql is $oldbindir..."  "OK" | tee -a $LOGFILE
+
+echo ""
+
+echo "Fetching Data Directory Location for Postgresql Verions $PREVMAJORVERSION " | tee -a $LOGFILE
+olddatadir="$($oldbindir/psql -q -U postgres -p $oldport -t -P format=unaligned -c 'show data_directory;')"
+if [ -z "$olddatadir" ] ; then
+print_status "Failed to retreive Data directory for Postgresql Version : $PREVMAJORVERSION..." "Failed" | tee -a $LOGFILE
+exit 1
+fi
+print_status "Postgre Data Directory : $olddatadir..." "OK"  | tee -a $LOGFILE
+echo""
+
+
+echo "Fetching Port Number for Postgresql Verions $PREVMAJORVERSION" | tee -a $LOGFILE
+oldport="$($oldbindir/psql -q -U postgres -p $oldport -t -P format=unaligned -c "SELECT setting FROM pg_settings WHERE NAME = 'port';")"
+if [ -z "$oldport" ] ; then
+print_status "Failed to retreive port details for Postgresql Version : $PREVMAJORVERSION..." "Failed" | tee -a $LOGFILE
+exit 1
+fi
+print_status "Postgre port Number  : $oldport " "OK" | tee -a $LOGFILE
+echo""
+
+ if [ ! -x "$Newbinarypath/$NewPostgreVersion/pg_upgrade" ]; then
+        echo
+ print_status $"Please install the postgresql-upgrade RPM." "Failed" | tee -a $LOGFILE
+        echo
+        exit 5
+    fi
+
+	
+#Stopping postgrsql services before upgarde
+echo "Stopping postgrsql services before upgarde..."
+su - postgres --command "$Newbinarypath/$NewPostgreVersion/pg_ctl -D $NewDataFolder/$NewPostgreVersion/ stop" | tee -a $LOGFILE	
+if [ $? != 0 ];then
+print_status "Failed to stop Postgresql Services for Version:- $NewPostgreVersion" "Failed" | tee -a $Logfile
+exit 1
+else
+print_status "Postgresql Services for Version:- $NewPostgreVersion stopped" "OK" | tee -a $Logfile
+fi
+
+su - postgres --command "$oldbindir/pg_ctl -D $olddatadir stop" | tee -a $LOGFILE
+if [ $? != 0 ];then
+print_status "Failed to stop Postgresql Services for Version:- $PREVMAJORVERSION" "Failed" | tee -a $Logfile
+exit 1
+else
+print_status "Postgresql Services for Version:- $PREVMAJORVERSION stopped" "OK" | tee -a $Logfile
+fi
+
+
+
+    # Move old DB to PGDATAOLD
+    rm -rf "$PGDATAOLD"
+	PGDATAOLD="${olddatadir}-old"
+    mv "$olddatadir" "$PGDATAOLD" || exit 1
+
+
+
+
+    # Create configuration file for upgrade process
+    HBA_CONF_BACKUP="$PGDATAOLD/pg_hba.conf.postgresql-upgrade.`date +%s`"  | tee -a $LOGFILE 
+    HBA_CONF_BACKUP_EXISTS=0
+		
+
+
+   if [ ! -f $HBA_CONF_BACKUP ]; then
+        mv "$PGDATAOLD/pg_hba.conf" "$HBA_CONF_BACKUP"
+        HBA_CONF_BACKUP_EXISTS=1 | tee -a $LOGFILE
+
+
+        # For fluent upgrade 'postgres' user should be able to connect
+        # to any database without password.  Temporarily, no other type
+        # of connection is needed.
+        echo "local all postgres ident" > "$PGDATAOLD/pg_hba.conf"
+    fi
+
+
+    echo -n "Upgrading database: "
+	
+	
+
+	# Create empty new-format database
+    #if perform_initdb; then
+        # Do the upgrade
+        $SU -l postgres -c "$Newbinarypath/$NewPostgreVersion/pg_upgrade \
+                        '--old-bindir=$oldbindir' \
+                        '--new-bindir=$Newbinarypath/$NewPostgreVersion' \
+                        '--old-datadir=$PGDATAOLD' \
+                        '--new-datadir=$NewDataFolder/$NewPostgreVersion' \
+                        --link \
+                        '--old-port=$oldport' '--new-port=$Newport' \
+                        --old-options '-c config_file=$PGDATAOLD/postgresql.conf'\
+						--new-options '-c config_file=$NewDataFolder/$NewPostgreVersion/postgresql.conf'"   | tee -a $LOGFILE 
+        if [ $? -ne 0 ]; then
+            # pg_upgrade failed
+            script_result=1
+        fi
+    #else
+    #fi
+
+
+
+   # Move back the backed-up pg_hba.conf regardless of the script_result.
+    if [ x$HBA_CONF_BACKUP_EXISTS = x1 ]; then
+        mv -f "$HBA_CONF_BACKUP" "$PGDATAOLD/pg_hba.conf"
+    fi
+
+    if [[ $script_result -eq 0 ]]; then
+        echo $"OK"
+        echo
+        echo $"The configuration files were replaced by default configuration."
+        echo $"The previous configuration and data are stored in folder"
+        echo $PGDATAOLD.
+		print_status "Postgresql Version upgrade successfull...." "OK"
+    else
+        # Clean up after failure
+        rm -rf "$NewDataFolder/$NewPostgreVersion"
+        mv "$PGDATAOLD" "$olddatadir"
+print_status " PostgreSQL Version Upgrade Failed..." "Failed"
+    fi
+    echo ""
+	echo ""
+	echo ""
+	echo ""
+	
+	if [[ $script_result -eq 0 ]]; then
+	echo "Postupgrade activity..." | tee -a $LOGFILE
+	echo "Copying pg_hba file to new version.... " | tee -a $LOGFILE
+	mv $NewDataFolder/$NewPostgreVersion/pg_hba.conf $NewDataFolder/$NewPostgreVersion/pg_hba_bak.conf | tee -a $LOGFILE
+	mv -f -v $PGDATAOLD/pg_hba.conf $NewDataFolder/$NewPostgreVersion/pg_hba.conf | tee -a $LOGFILE
+	echo ""
+	echo ""
+	echo""
+	echo "Copying new systemctl file....."
+	mv /etc/sysconfig/postgresql /etc/sysconfig/postgresql_bak_$PREVMAJORVERSION | tee -a $LOGFILE
+    mv -f -v /etc/sysconfig/postgresql_New /etc/sysconfig/postgresql	| tee -a $LOGFILE
+	chmod -R 0644 /etc/sysconfig/postgresql | tee -a $LOGFILE
+	echo ""
+	echo ""
+	echo "starting Postgresql $NewPostgreVersion with port $oldport...." | tee -a $LOGFILE
+	su - postgres -c "$Newbinarypath/$NewPostgreVersion/pg_ctl -D $NewDataFolder/$NewPostgreVersion -l $Newlogfilepath/$NewPostgreVersion/postgres_server.log -o '-p $oldport' start" | tee -a $LOGFILE
+	su - postgres --command "$Newbinarypath/$NewPostgreVersion/pg_ctl -D $NewDataFolder/$NewPostgreVersion/ stop" | tee -a $LOGFILE
+	systemctl start postgresql
+if [ $? != 0 ]
+then
+print_status "Postgres service restart failed.. please validate the logfile..." "Failed" | tee -a $LOGFILE
+exit 1
+else
+print_status "Postgres service started sucessfully..." "OK" | tee -a $LOGFILE
+fi
+
+	echo ""
+	echo ""
+	echo " Optimizer statistics are not transferred by pg_upgrade so,once you start the new server, consider running: $Newbinarypath/$NewPostgreVersion/analyze_new_cluster.sh" | tee -a $LOGFILE
+	echo ""
+	echo ""
+	echo ""
+	echo "Find folders related to $PREVMAJORVERSION to be deleted....." | tee -a $LOGFILE
+	for d in $(find / -iname $PREVMAJORVERSION -type d)
+	do
+	echo "rm -rf '$d' " >> /var/lib/postgresql/bin/10.1/delete_old_cluster.sh 
+	done
+	echo "Running this script will delete the old cluster's data files: $Newbinarypath/$NewPostgreVersion/delete_old_cluster.sh" | tee -a $LOGFILE
+	fi
+echo ""

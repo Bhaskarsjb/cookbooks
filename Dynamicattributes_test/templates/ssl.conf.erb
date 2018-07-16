@@ -1,0 +1,30 @@
+Creating and bootstraping  a chef node:
+======================================
+
+step1: Add the private key in the chef workstation (in .ssh or ssh (added in both))
+
+step2: Test the ssh connection to the node
+
+$ ssh -i ~/.ssh/EC2-LINUX-KEY-PAIR.pem ubuntu@35.154.80.203
+
+Step 3: Bootstrap the Chef node (in the chef workstation run the below command)
+
+$ knife bootstrap 35.154.80.203 --sudo -x ubuntu --ssh-i ~/.ssh/EC2-LINUX-KEY-PAIR.pem -N "node1-ubuntu" -r 'recipe[learn_chef_apache2]'
+
+==================================
+provisioning linux based instance:
+==================================
+$ knife ec2 server create -r 'recipe[learn_chef_apache2]' -I  ami-3c374c53 -f t2.micro \  -S EC2-LINUX-KEY-PAIR -i ~/.ssh/EC2-LINUX-KEY-PAIR.pem --ssh-user ubuntu --region ap-south-1 -Z ap-south-1a --security-group-id sg-3806da50 -N aws
+$ knife bootstrap 35.154.184.126 --sudo -x ec2-user --ssh-i ~/.ssh/EC2-LINUX-KEY-PAIR.pem -N "aws" -r 'recipe[learn_chef_apache2], recipe[tomcat]'
+
+
+==============================
+provisioning windows instance:
+==============================
+$ knife ec2 server create -I  ami-c488dfab  -f t2.micro --region ap-south-1 -Z ap-south-1a -S EC2-LINUX-KEY-PAIR --user-data ec2userdata.txt -i ~/.ssh/EC2-LINUX-KEY-PAIR.pem --security-group-id sg-3806da50 -N windows-instance
+
+$ knife bootstrap windows winrm 13.127.217.115 --winrm-user Administrator --winrm-password 'uQo67zDNid' --node-name windows-instance
+
+<%= @servername %>
+<%= @sslcertificate %>
+abc = "#{node['apache']['servername']}"
